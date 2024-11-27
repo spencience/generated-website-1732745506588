@@ -1,123 +1,225 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" aria-label="3D First Person Experience">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>3D First Person View</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            overflow: hidden;
-            background: #000;
-        }
-        
-        #scene-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-        
-        .overlay {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-family: monospace;
-            z-index: 100;
-            background: rgba(0,0,0,0.5);
-            padding: 10px;
-            border-radius: 5px;
-        }
-    </style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        overflow: hidden;
+        background: #000;
+    }
+    
+    #scene-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        outline: none;
+    }
+    
+    .overlay {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        color: white;
+        font-family: monospace;
+        z-index: 100;
+        background: rgba(0,0,0,0.5);
+        padding: 10px;
+        border-radius: 5px;
+    }
+
+    .touch-controls {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 20px;
+        z-index: 100;
+    }
+
+    .touch-controls button {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        border: 2px solid white;
+        color: white;
+        font-size: 24px;
+        touch-action: manipulation;
+    }
+</style>
 </head>
 <body>
-<div id="scene-container"></div>
-<div class="overlay">Move mouse to look around</div>
-<script>
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
+<div id="scene-container" role="application" aria-label="3D environment viewer" tabindex="0"></div>
+<div class="overlay" role="status" aria-live="polite">
+    Use mouse/touch to look around<br>
+    Touch buttons or WASD keys to move
+</div>
+<div class="touch-controls" role="group" aria-label="Movement controls">
+    <button aria-label="Move forward">↑</button>
+    <button aria-label="Move left">←</button>
+    <button aria-label="Move backward">↓</button>
+    <button aria-label="Move right">→</button>
+</div>
+<script type="module">
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('scene-container').appendChild(renderer.domElement);
+
+    // Create environment
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
+
+    // Add ground
+    const groundGeometry = new THREE.PlaneGeometry(100, 100);
+    const groundMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x444444,
+        side: THREE.DoubleSide
+    });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = Math.PI / 2;
+    ground.position.y = -2;
+    scene.add(ground);
+
+    // Add random cubes
+    for(let i = 0; i < 50; i++) {
+        const randomCube = new THREE.Mesh(
+            new THREE.BoxGeometry(1, Math.random() * 5, 1),
+            new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff })
+        );
+        randomCube.position.x = Math.random() * 100 - 50;
+        randomCube.position.z = Math.random() * 100 - 50;
+        randomCube.position.y = randomCube.geometry.parameters.height / 2;
+        scene.add(randomCube);
+    }
+
+    camera.position.z = 5;
+    camera.position.y = 1;
+
+    // Movement controls
+    const moveSpeed = 0.1;
+    const keys = {
+        forward: false,
+        backward: false,
+        left: false,
+        right: false
+    };
+
+    // Mouse/Touch look controls
+    let mouseX = 0;
+    let mouseY = 0;
+    let targetRotationX = 0;
+    let targetRotationY = 0;
+    const sensitivity = 0.002;
+
+    // Touch controls
+    const buttons = document.querySelectorAll('.touch-controls button');
+    buttons[0].addEventListener('touchstart', () => keys.forward = true);
+    buttons[0].addEventListener('touchend', () => keys.forward = false);
+    buttons[1].addEventListener('touchstart', () => keys.left = true);
+    buttons[1].addEventListener('touchend', () => keys.left = false);
+    buttons[2].addEventListener('touchstart', () => keys.backward = true);
+    buttons[2].addEventListener('touchend', () => keys.backward = false);
+    buttons[3].addEventListener('touchstart', () => keys.right = true);
+    buttons[3].addEventListener('touchend', () => keys.right = false);
+
+    // Keyboard controls
+    window.addEventListener('keydown', (e) => {
+        switch(e.key.toLowerCase()) {
+            case 'w': keys.forward = true; break;
+            case 's': keys.backward = true; break;
+            case 'a': keys.left = true; break;
+            case 'd': keys.right = true; break;
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        switch(e.key.toLowerCase()) {
+            case 'w': keys.forward = false; break;
+            case 's': keys.backward = false; break;
+            case 'a': keys.left = false; break;
+            case 'd': keys.right = false; break;
+        }
+    });
+
+    // Mouse and touch look controls
+    document.addEventListener('mousemove', (event) => {
+        mouseX = event.clientX - window.innerWidth / 2;
+        mouseY = event.clientY - window.innerHeight / 2;
         
+        targetRotationX = mouseX * sensitivity;
+        targetRotationY = mouseY * sensitivity;
+    });
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    document.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    });
+
+    document.addEventListener('touchmove', (e) => {
+        const touchX = e.touches[0].clientX;
+        const touchY = e.touches[0].clientY;
+        
+        const deltaX = touchX - touchStartX;
+        const deltaY = touchY - touchStartY;
+        
+        targetRotationX += deltaX * sensitivity;
+        targetRotationY += deltaY * sensitivity;
+        
+        touchStartX = touchX;
+        touchStartY = touchY;
+        
+        e.preventDefault();
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('scene-container').appendChild(renderer.domElement);
+    });
 
-        // Create environment
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
-        const cube = new THREE.Mesh(geometry, material);
-        scene.add(cube);
+    // Animation loop
+    function animate() {
+        requestAnimationFrame(animate);
+        
+        // Movement
+        const moveVector = new THREE.Vector3();
+        if (keys.forward) moveVector.z -= moveSpeed;
+        if (keys.backward) moveVector.z += moveSpeed;
+        if (keys.left) moveVector.x -= moveSpeed;
+        if (keys.right) moveVector.x += moveSpeed;
+        
+        moveVector.applyEuler(new THREE.Euler(0, camera.rotation.y, 0));
+        camera.position.add(moveVector);
+        
+        // Camera rotation
+        camera.rotation.y += (targetRotationX - camera.rotation.y) * 0.05;
+        camera.rotation.x += (targetRotationY - camera.rotation.x) * 0.05;
+        camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+        
+        renderer.render(scene, camera);
+    }
 
-        // Add ground
-        const groundGeometry = new THREE.PlaneGeometry(100, 100);
-        const groundMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x444444,
-            side: THREE.DoubleSide
-        });
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = Math.PI / 2;
-        ground.position.y = -2;
-        scene.add(ground);
-
-        // Add some random cubes for environment
-        for(let i = 0; i < 50; i++) {
-            const randomCube = new THREE.Mesh(
-                new THREE.BoxGeometry(1, Math.random() * 5, 1),
-                new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff })
-            );
-            randomCube.position.x = Math.random() * 100 - 50;
-            randomCube.position.z = Math.random() * 100 - 50;
-            randomCube.position.y = randomCube.geometry.parameters.height / 2;
-            scene.add(randomCube);
-        }
-
-        camera.position.z = 5;
-        camera.position.y = 1;
-
-        // Mouse look controls
-        let mouseX = 0;
-        let mouseY = 0;
-        let targetRotationX = 0;
-        let targetRotationY = 0;
-        const sensitivity = 0.002;
-
-        document.addEventListener('mousemove', (event) => {
-            mouseX = event.clientX - window.innerWidth / 2;
-            mouseY = event.clientY - window.innerHeight / 2;
-            
-            targetRotationX = mouseX * sensitivity;
-            targetRotationY = mouseY * sensitivity;
-        });
-
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        // Animation loop
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            // Smooth camera rotation
-            camera.rotation.y += (targetRotationX - camera.rotation.y) * 0.05;
-            camera.rotation.x += (targetRotationY - camera.rotation.x) * 0.05;
-            
-            // Limit vertical rotation
-            camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
-            
-            renderer.render(scene, camera);
-        }
-
-        animate();
-    </script>
+    animate();
+</script>
 </body>
 </html>
